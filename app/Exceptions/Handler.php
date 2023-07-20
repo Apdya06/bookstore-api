@@ -45,26 +45,21 @@ class Handler extends ExceptionHandler
     }
     public function render($request, Throwable $exception)
     {
-        // membaca konfigurasi, apakah aplikasi menggunakan mode production atau development
         $debug = config('app.debug');
         $message = '';
         $status_code = 500;
-        // cek jika eksepsinya dikarenakan model tidak ditemukan
         if ($exception instanceof ModelNotFoundException) {
             $message = 'Resource is not found';
             $status_code = 404;
         }
-        // cek jika eksepsinya dikarenakan resource tidak ditemukan
         elseif ($exception instanceof NotFoundHttpException) {
             $message = 'Endpoint is not found';
             $status_code = 404;
         }
-        // cek jika eksepsinya dikarenakan method tidak diizinkan
         elseif ($exception instanceof MethodNotAllowedHttpException) {
             $message = 'Method is not allowed';
             $status_code = 405;
         }
-        // cek jika eksepsinya dikarenakan kegagalan validasi
         else if ($exception instanceof ValidationException) {
             $validationErrors = $exception->validator->errors()->getMessages();
             $validationErrors = array_map(function($error) {
@@ -75,7 +70,6 @@ class Handler extends ExceptionHandler
             $message = $validationErrors;
             $status_code = 405;
         }
-        // cek jika eksepsinya dikarenakan kegagalan query
         else if ($exception instanceof QueryException) {
             if ($debug) {
                 $message = $exception->getMessage();

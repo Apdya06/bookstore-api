@@ -3,10 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Book;
-use App\Http\Resources\Book as BookResourceCollection;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Resources\Books as BookResourceCollection;
+use App\Http\Resources\Book as BookResource;
 
 class BookController extends Controller
 {
@@ -23,7 +22,6 @@ class BookController extends Controller
 
     public function view($id)
     {
-        // $book = DB::select('select * from books where id = :id', ['id' => $id]);
         $book = new BookResourceCollection(Book::find($id));
         return $book;
     }
@@ -36,12 +34,19 @@ class BookController extends Controller
         ->get();
         return new BookResourceCollection($criteria);
     }
-    // public function example()
-    // {
-    //     $user = Auth::user();
-    //     $id = Auth::id();
-    //     if (Auth::check()) {
-    //         // The user is logged in
-    //     }
-    // }
+
+    public function slug($slug)
+    {
+        $criteria = Book::where('slug', $slug)->first();
+        return new BookResource($criteria);
+    }
+
+    public function search($keyword)
+    {
+        $criteria = Book::select('*')
+            ->where('title', 'LIKE', "%".$keyword."%")
+            ->orderBy('views', 'DESC')
+            ->get();
+        return new BookResourceCollection($criteria);
+    }
 }

@@ -38,6 +38,7 @@ class BooksTableSeeder extends Seeder
                 'cover' => $cover,
                 'price' => mt_rand(1, 10) * 50000,
                 'weight' => 0.5,
+                'stock' => mt_rand(1, 100),
                 'status' => 'PUBLISH',
                 'created_at' => Carbon::now(),
             ];

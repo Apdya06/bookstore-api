@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class Book extends JsonResource
+class Category extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -15,7 +15,7 @@ class Book extends JsonResource
     public function toArray($request)
     {
         $parent = parent::toArray($request);
-        $data['categories'] = $this->categories;
+        $data['books'] = $this->books()->paginate(6);
         $data = array_merge($parent, $data);
         return [
             'status' => 'succes',

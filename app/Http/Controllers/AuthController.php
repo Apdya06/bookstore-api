@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use stdClass;
 
 class AuthController extends Controller
 {
@@ -15,32 +16,32 @@ class AuthController extends Controller
             'email' => 'required',
             'password' => 'required',
         ]);
-        $user = User::where('email', $request->email)->firstOrFail();
+        $user = User::where('email', $request->email)->first();
         $status = "error";
         $message = "";
-        $data = null;
+        $data = new stdClass();
         $status_code = 401;
         if($user){
-            // jika hasil hash dari password yang diinput user sama dengan password di database user maka
-            if (Hash::check($request->password, $user->password)) { // generate token
+            if (Hash::check($request->password, $user->password)) {
                 $user->generateToken();
                 $status = 'success';
-                $message = 'Login sukses';
-                // tampilkan data user menggunakan method toArray
+                $message = 'Login Successful';
                 $data = $user->toArray();
                 $status_code = 200;
             } else {
-                $message = "Login gagal, password salah";
+                $message = "Login failed, wrong password";
             }
         } else {
-            $message = "Login gagal, username salah";
+            $message = "Login failed, email not found";
         }
         return response()->json([
             'status' => $status,
             'message' => $message,
-            'data' => $data
-        ], $status_code);
+            'status code' => $status_code,
+            'data' => $data,
+        ]);
     }
+
     public function register(Request $request) {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -49,7 +50,7 @@ class AuthController extends Controller
         ]);
         $status = "error";
         $message = "";
-        $data = null;
+        $data = new stdClass();
         $status_code = 400;
         if ($validator->fails()) {
             $errors = $validator->errors();
@@ -77,7 +78,9 @@ class AuthController extends Controller
             'data' => $data
         ], $status_code);
     }
+
     public function logout(Request $request) {
+    /** @var \App\Models\User $user */
         $user = Auth::user();
         if ($user) {
             $user->api_token = null;
