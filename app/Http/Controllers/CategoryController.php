@@ -27,8 +27,6 @@ class CategoryController extends Controller
     public function slug($slug)
     {
         $criteria = Category::where('slug', $slug)->first();
-        // $criteria = Category::first();
         return new CategoryResource($criteria);
-        // return var_dump($criteria);
     }
 }

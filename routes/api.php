@@ -23,10 +23,12 @@
     Route::prefix('v1')->group(function () {
         Route::post('login', [Controllers\AuthController::class, 'login']);
         Route::get('book/{id}', [Controllers\BookController::class, 'view'])->where('id', '[0-9]+');
-        Route::group(['middleware' => 'api'], function () {
+        Route::group(['middleware' => 'auth:api'], function () {
             Route::post('logout', [Controllers\AuthController::class, 'logout']);
             Route::post('shipping', [Controllers\ShopController::class, 'shipping']);
             Route::post('services', [Controllers\ShopController::class, 'services']);
+            Route::post('payment', [Controllers\ShopController::class, 'payment']);
+            Route::get('my-order', [Controllers\ShopController::class, 'myOrder']);
         });
         Route::group(['middleware' => 'cors'], function () {
             Route::post('register', [Controllers\AuthController::class, 'register']);

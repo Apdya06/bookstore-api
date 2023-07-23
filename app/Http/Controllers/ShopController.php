@@ -7,6 +7,7 @@ use App\Http\Resources\Provinces as ProvincesResourceCollection;
 use App\Http\Resources\Cities as CityResourceCollection;
 use App\Models;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ShopController extends Controller
 {
@@ -26,7 +27,7 @@ class ShopController extends Controller
         $status = 'error';
         $message = "";
         $data = null;
-        $code = 200;
+        $status_code = 200;
         if ($user) {
             $this->validate($request, [
                 'name' => 'required',
@@ -48,13 +49,14 @@ class ShopController extends Controller
                 $message = "Update Shipping Failed";
             }
         } else {
-            $message = "User not found";
+            $message = "User Not Found";
         }
         return response()->json([
             'status' => $status,
+            'status code' => $status_code,
             'message' => $message,
             'data' => $data
-        ], $code);
+        ]);
     }
     public function couriers()
     {
@@ -65,9 +67,10 @@ class ShopController extends Controller
         ];
         return response()->json([
             'status' => 'success',
+            'status code' => 200,
             'message' => 'couriers',
             'data' => $couriers
-        ], 200);
+        ]);
     }
     protected function validateCart($carts)
     {
@@ -148,7 +151,6 @@ class ShopController extends Controller
             'courier' => 'required',
             'carts' => 'required',
         ]);
-
         $user = Auth::user();
         if ($user) {
             $destination = $user->city_id;
@@ -199,7 +201,7 @@ class ShopController extends Controller
                                 $message = "Check Cart Data, " . $message;
                             }
                         } else {
-                            $message = "Invalid response from RajaOngkir API";
+                            $message = "Invalid Response From RajaOngkir API";
                         }
                     } else {
                         $message = "CURL Error #:" . $respon_services['error'];
@@ -215,9 +217,153 @@ class ShopController extends Controller
         }
         return response()->json([
             'status' => $status,
+            'status code' => 200,
             'message' => $message,
             'data' => $data
-        ], 200);
+        ]);
     }
 
+    public function payment(Request $request)
+    {
+        $error = 0;
+        $status = "Error";
+        $message = "";
+        $data = [];
+        $user = Auth::user();
+        if ($user) {
+            $this->validate($request, [
+                'courier' => 'required',
+                'service' => 'required',
+                'carts' => 'required'
+            ]);
+
+            DB::beginTransaction();
+            try {
+                $origin = 153;
+                $destination = $user->city_id;
+                if ($destination <= 0) $error++;
+                $courier = $request->courier;
+                $service = $request->service;
+                $carts = json_decode($request->carts, true);
+                $order = new Models\Order;
+                $order->user_id = $user->id;
+                $order->total_price = 0;
+                $order->invoice_number = date('YmdHis');
+                $order->courier_service = $courier. '-' .$service;
+                $order->status = 'SUBMIT';
+                if ($order->save()) {
+                    $total_price = 0;
+                    $total_weight = 0;
+                    foreach ($carts as $cart) {
+                        $id = (int)$cart['id'];
+                        $quantity = (int)$cart['quantity'];
+                        $book = Models\Book::find($id);
+                        if ($book) {
+                            if ($book->stock >= $quantity) {
+                                $total_price += $book->price * $quantity;
+                                $total_weight += $book->weight * $quantity;
+                                $book_order = new Models\BookOrder;
+                                $book_order->book_id = $book->id;
+                                $book_order->order_id = $order->id;
+                                $book_order->quantity = $quantity;
+                                if ($book_order->save()) {
+                                    $book->stock = $book->stock - $quantity;
+                                    $book->save();
+                                }
+                            }else {
+                                $error++;
+                                throw new \Exception('Book Is Not Found');
+                            }
+                        }else {
+                            $error++;
+                            throw new \Exception('Book Is Not Found');
+                        }
+                    }
+                    $totalBill = 0;
+                    $weight = $total_weight * 1000;
+                    if ($weight <= 0) {
+                        $error++;
+                        throw new \Exception('Weight Null');
+                    }
+                    $data = [
+                        "origin" => $origin,
+                        "destination" => $destination,
+                        "weight" => $weight,
+                        "courier" => $courier,
+                    ];
+                    $data_cost = $this->getServices($data);
+                    if ($data_cost['error']) {
+                        $error++;
+                        throw new \Exception('Courier Service Unavaliable');
+                    }
+                    $response = json_decode($data_cost['response']);
+                    $costs = $response->rajaongkir->results[0]->costs;
+                    $service_cost = 0;
+                    foreach ($costs as $cost) {
+                        $service_name = $cost->service;
+                        if ($service == $service_name) {
+                            $service_cost = $cost->cost[0]->value;
+                            break;
+                        }
+                    }
+                    if ($service_cost <= 0) {
+                        $error++;
+                        throw new \Exception('Courier Cost Unavaliable');
+                    }
+                    $total_bill = $total_price + $service_cost;
+                    $order->total_price = $total_bill;
+                    if ($order->save()) {
+                        if ($error == 0) {
+                            DB::commit();
+                            $status = 'success';
+                            $message = 'Transaction success';
+                            $data = [
+                                'order_id' => $order->id,
+                                'total_price' => $total_bill,
+                                'invoice_number' => $order->invoice_number,
+                            ];
+                        } else {
+                            $message = 'There Are '.$error.' Error';
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                $message = $e->getMessage();
+                DB::rollback();
+            }
+        }else {
+            $message = "User Not Found";
+        }
+        return response()->json([
+            'status' => $status,
+            'status code' => 200,
+            'message' => $message,
+            'data' => $data
+        ]);
+    }
+
+    public function myOrder(Request $request)
+    {
+        $user = Auth::user();
+        $status = "error";
+        $message = "";
+        $data = [];
+        if ($user) {
+            $orders = Models\Order::select('*')
+                    ->where('user_id','=',$user->id)
+                    ->orderBy('id','DESC')
+                    ->get();
+            $status = "success";
+            $message = "Data My Order ";
+            $data = $orders;
+        } else {
+            $message = "User Not Found";
+        }
+        return response()->json([
+            'status' => $status,
+            'status code' => 200,
+            'message' => $message,
+            'data' => $data
+        ]);
+    }
 }

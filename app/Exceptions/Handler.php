@@ -94,7 +94,7 @@ class Handler extends ExceptionHandler
             'data' => null,
             'status_code' => $status_code,
             'errors' => $errors,
-            ], $status_code);
+        ], $status_code);
     }
 
 }

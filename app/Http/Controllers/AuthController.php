@@ -74,9 +74,10 @@ class AuthController extends Controller
         }
         return response()->json([
             'status' => $status,
+            'status code' => $status_code,
             'message' => $message,
             'data' => $data
-        ], $status_code);
+        ]);
     }
 
     public function logout(Request $request) {
@@ -87,8 +88,9 @@ class AuthController extends Controller
             $user->save();
         } return response()->json([
             'status' => 'success',
+            'status code' => 200,
             'message' => 'logout berhasil',
             'data' => null
-        ], 200);
+        ]);
     }
 }
